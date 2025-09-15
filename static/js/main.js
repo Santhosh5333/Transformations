@@ -144,6 +144,13 @@ function initFormValidation() {
                 const submitBtn = form.querySelector('button[type="submit"]');
                 showLoading(submitBtn);
                 
+                // Add shake animation to form if there were previous errors
+                const hasErrors = form.querySelector('.is-invalid');
+                if (hasErrors) {
+                    form.classList.add('shake');
+                    setTimeout(() => form.classList.remove('shake'), 500);
+                }
+                
                 // Simulate form submission (replace with actual AJAX call)
                 setTimeout(() => {
                     hideLoading(submitBtn);
@@ -153,11 +160,21 @@ function initFormValidation() {
                 // Show validation summary
                 showValidationSummary(form);
                 
+                // Add shake animation to form
+                form.classList.add('shake');
+                setTimeout(() => form.classList.remove('shake'), 500);
+                
                 // Focus on first invalid field
                 const firstInvalid = form.querySelector('.is-invalid');
                 if (firstInvalid) {
                     firstInvalid.focus();
+                    // Add pulse animation to invalid field
+                    firstInvalid.classList.add('pulse');
+                    setTimeout(() => firstInvalid.classList.remove('pulse'), 1000);
                 }
+                
+                // Show error toast
+                showToast('Please fix the errors below before submitting', 'error');
             }
             
             form.classList.add('was-validated');
@@ -392,11 +409,32 @@ function initTooltips() {
 function initAlerts() {
     const alerts = document.querySelectorAll('.alert');
     alerts.forEach(alert => {
-        // Auto-dismiss after 5 seconds
+        // Add animation classes
+        alert.classList.add('fade-in');
+        
+        // Auto-dismiss after different times based on alert type
+        let dismissTime = 5000; // Default 5 seconds
+        
+        if (alert.classList.contains('alert-danger')) {
+            dismissTime = 8000; // Error alerts stay longer
+        } else if (alert.classList.contains('alert-warning')) {
+            dismissTime = 6000; // Warning alerts stay medium time
+        } else if (alert.classList.contains('alert-success')) {
+            dismissTime = 4000; // Success alerts dismiss quickly
+        }
+        
         setTimeout(() => {
             const bsAlert = new bootstrap.Alert(alert);
             bsAlert.close();
-        }, 5000);
+        }, dismissTime);
+    });
+    
+    // Add click-to-dismiss functionality
+    alerts.forEach(alert => {
+        alert.addEventListener('click', function() {
+            const bsAlert = new bootstrap.Alert(this);
+            bsAlert.close();
+        });
     });
 }
 

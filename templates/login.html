@@ -40,9 +40,36 @@
                 <div class="text-center mb-4">
                     <h3 class="fw-bold text-primary">Sign In</h3>
                     <p class="text-muted">Enter your credentials to access your account</p>
+                    
+                    <!-- Login Attempts Warning -->
+                    {% if login_attempts > 0 %}
+                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Security Notice:</strong> {{ login_attempts }} failed login attempt(s) detected.
+                            {% if login_attempts >= 3 %}
+                                <br><small>Multiple failed attempts detected. Please verify your credentials.</small>
+                            {% endif %}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Account Locked Warning -->
+                    {% if is_locked %}
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-lock me-2"></i>
+                            <strong>Account Temporarily Locked:</strong> Too many failed login attempts.
+                            <br><small>Please wait a few minutes before trying again.</small>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
                 </div>
 
                 <form method="POST" class="needs-validation" novalidate>
+                    {% if login_attempts > 0 %}
+                        <div class="position-relative d-inline-block mb-3">
+                            <div class="login-attempts-counter">{{ login_attempts }}</div>
+                        </div>
+                    {% endif %}
                     <div class="mb-3">
                         <label for="username" class="form-label">
                             <i class="fas fa-user me-2"></i>Username
@@ -56,11 +83,13 @@
                                    id="username" 
                                    name="username" 
                                    placeholder="Enter your username"
+                                   value="{{ attempted_username or '' }}"
                                    required
                                    minlength="3"
                                    maxlength="20"
                                    pattern="[a-zA-Z0-9_]+"
-                                   autocomplete="username">
+                                   autocomplete="username"
+                                   {% if is_locked %}disabled{% endif %}>
                             <div class="invalid-feedback">
                                 Username must be 3-20 characters, letters, numbers, and underscores only.
                             </div>
@@ -85,7 +114,8 @@
                                    placeholder="Enter your password"
                                    required
                                    minlength="6"
-                                   autocomplete="current-password">
+                                   autocomplete="current-password"
+                                   {% if is_locked %}disabled{% endif %}>
                             <button class="btn btn-outline-secondary" 
                                     type="button" 
                                     id="togglePassword"
@@ -124,13 +154,25 @@
                     </div>
 
                     <div class="d-grid mb-3">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                        <button type="submit" class="btn btn-primary btn-lg" {% if is_locked %}disabled{% endif %}>
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            {% if is_locked %}
+                                Account Locked
+                            {% else %}
+                                Sign In
+                            {% endif %}
                         </button>
                     </div>
 
                     <div class="text-center">
                         <a href="#" class="text-decoration-none">Forgot your password?</a>
+                        {% if login_attempts > 0 %}
+                            <br><small class="text-muted">
+                                <a href="{{ url_for('reset_login_attempts') }}" class="text-decoration-none">
+                                    Reset login attempts
+                                </a>
+                            </small>
+                        {% endif %}
                     </div>
                 </form>
 
