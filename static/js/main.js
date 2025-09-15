@@ -23,7 +23,81 @@ function initPasswordToggle() {
             icon.classList.toggle('fa-eye');
             icon.classList.toggle('fa-eye-slash');
         });
+        
+        // Password strength indicator
+        passwordField.addEventListener('input', function() {
+            updatePasswordStrength(this.value);
+        });
     }
+}
+
+// Password strength validation
+function updatePasswordStrength(password) {
+    const strengthIndicator = document.getElementById('passwordStrength');
+    const progressBar = strengthIndicator?.querySelector('.progress-bar');
+    const strengthText = document.getElementById('passwordStrengthText');
+    
+    if (!strengthIndicator || !progressBar || !strengthText) return;
+    
+    if (password.length === 0) {
+        strengthIndicator.style.display = 'none';
+        return;
+    }
+    
+    strengthIndicator.style.display = 'block';
+    
+    const strength = calculatePasswordStrength(password);
+    const percentage = strength.score * 25; // Convert to percentage
+    
+    progressBar.style.width = `${percentage}%`;
+    progressBar.className = `progress-bar ${strength.class}`;
+    strengthText.textContent = strength.text;
+}
+
+// Calculate password strength
+function calculatePasswordStrength(password) {
+    let score = 0;
+    let feedback = [];
+    
+    // Length check
+    if (password.length >= 6) score++;
+    else feedback.push('at least 6 characters');
+    
+    if (password.length >= 8) score++;
+    if (password.length >= 12) score++;
+    
+    // Character variety checks
+    if (/[a-z]/.test(password)) score++;
+    else feedback.push('lowercase letters');
+    
+    if (/[A-Z]/.test(password)) score++;
+    else feedback.push('uppercase letters');
+    
+    if (/[0-9]/.test(password)) score++;
+    else feedback.push('numbers');
+    
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    else feedback.push('special characters');
+    
+    // Determine strength level
+    let strength = { score: 0, class: '', text: '' };
+    
+    if (score <= 2) {
+        strength = { score: 1, class: 'bg-danger', text: 'Weak password' };
+    } else if (score <= 4) {
+        strength = { score: 2, class: 'bg-warning', text: 'Fair password' };
+    } else if (score <= 6) {
+        strength = { score: 3, class: 'bg-info', text: 'Good password' };
+    } else {
+        strength = { score: 4, class: 'bg-success', text: 'Strong password' };
+    }
+    
+    // Add feedback for missing elements
+    if (feedback.length > 0 && score < 4) {
+        strength.text += ` (consider adding ${feedback.slice(0, 2).join(', ')})`;
+    }
+    
+    return strength;
 }
 
 // Form Validation
@@ -31,15 +105,259 @@ function initFormValidation() {
     const forms = document.querySelectorAll('.needs-validation');
     
     Array.from(forms).forEach(form => {
+        // Real-time validation on input
+        const inputs = form.querySelectorAll('input[required]');
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                validateField(this);
+            });
+            
+            input.addEventListener('blur', function() {
+                validateField(this);
+            });
+        });
+        
+        // Form submission validation
         form.addEventListener('submit', function(event) {
-            if (!form.checkValidity()) {
-                event.preventDefault();
-                event.stopPropagation();
+            event.preventDefault();
+            event.stopPropagation();
+            
+            let isFormValid = true;
+            
+            // Validate all fields
+            inputs.forEach(input => {
+                if (!validateField(input)) {
+                    isFormValid = false;
+                }
+            });
+            
+            // Custom validation rules
+            if (!validateCustomRules(form)) {
+                isFormValid = false;
+            }
+            
+            if (isFormValid) {
+                // Hide validation summary
+                hideValidationSummary();
+                
+                // Show loading state
+                const submitBtn = form.querySelector('button[type="submit"]');
+                showLoading(submitBtn);
+                
+                // Simulate form submission (replace with actual AJAX call)
+                setTimeout(() => {
+                    hideLoading(submitBtn);
+                    form.submit();
+                }, 1000);
+            } else {
+                // Show validation summary
+                showValidationSummary(form);
+                
+                // Focus on first invalid field
+                const firstInvalid = form.querySelector('.is-invalid');
+                if (firstInvalid) {
+                    firstInvalid.focus();
+                }
             }
             
             form.classList.add('was-validated');
         });
     });
+}
+
+// Individual field validation
+function validateField(field) {
+    const value = field.value.trim();
+    const fieldType = field.type;
+    const fieldName = field.name;
+    let isValid = true;
+    let errorMessage = '';
+    
+    // Clear previous validation states
+    field.classList.remove('is-valid', 'is-invalid');
+    
+    // Required field validation
+    if (field.hasAttribute('required') && !value) {
+        isValid = false;
+        errorMessage = getFieldErrorMessage(fieldName, 'required');
+    }
+    
+    // Type-specific validation
+    if (value && isValid) {
+        switch (fieldType) {
+            case 'email':
+                if (!isValidEmail(value)) {
+                    isValid = false;
+                    errorMessage = getFieldErrorMessage(fieldName, 'email');
+                }
+                break;
+            case 'password':
+                if (!isValidPassword(value)) {
+                    isValid = false;
+                    errorMessage = getFieldErrorMessage(fieldName, 'password');
+                }
+                break;
+            case 'text':
+                if (fieldName === 'username') {
+                    if (!isValidUsername(value)) {
+                        isValid = false;
+                        errorMessage = getFieldErrorMessage(fieldName, 'username');
+                    }
+                }
+                break;
+        }
+    }
+    
+    // Length validation
+    if (value && isValid) {
+        const minLength = field.getAttribute('minlength');
+        const maxLength = field.getAttribute('maxlength');
+        
+        if (minLength && value.length < parseInt(minLength)) {
+            isValid = false;
+            errorMessage = getFieldErrorMessage(fieldName, 'minlength', minLength);
+        }
+        
+        if (maxLength && value.length > parseInt(maxLength)) {
+            isValid = false;
+            errorMessage = getFieldErrorMessage(fieldName, 'maxlength', maxLength);
+        }
+    }
+    
+    // Update field appearance
+    if (isValid && value) {
+        field.classList.add('is-valid');
+        field.classList.remove('is-invalid');
+    } else if (!isValid) {
+        field.classList.add('is-invalid');
+        field.classList.remove('is-valid');
+    }
+    
+    // Update error message
+    updateFieldErrorMessage(field, errorMessage);
+    
+    return isValid;
+}
+
+// Custom validation rules
+function validateCustomRules(form) {
+    let isValid = true;
+    
+    // Username validation
+    const username = form.querySelector('input[name="username"]');
+    if (username && username.value.trim()) {
+        if (!isValidUsername(username.value.trim())) {
+            isValid = false;
+        }
+    }
+    
+    // Password validation
+    const password = form.querySelector('input[name="password"]');
+    if (password && password.value.trim()) {
+        if (!isValidPassword(password.value.trim())) {
+            isValid = false;
+        }
+    }
+    
+    return isValid;
+}
+
+// Validation helper functions
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
+function isValidPassword(password) {
+    // Password must be at least 6 characters
+    return password.length >= 6;
+}
+
+function isValidUsername(username) {
+    // Username must be 3-20 characters, alphanumeric and underscores only
+    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+    return usernameRegex.test(username);
+}
+
+// Get field-specific error messages
+function getFieldErrorMessage(fieldName, errorType, value = null) {
+    const messages = {
+        username: {
+            required: 'Username is required',
+            username: 'Username must be 3-20 characters, letters, numbers, and underscores only',
+            minlength: `Username must be at least ${value} characters`,
+            maxlength: `Username must be no more than ${value} characters`
+        },
+        password: {
+            required: 'Password is required',
+            password: 'Password must be at least 6 characters long',
+            minlength: `Password must be at least ${value} characters`,
+            maxlength: `Password must be no more than ${value} characters`
+        },
+        email: {
+            required: 'Email is required',
+            email: 'Please enter a valid email address'
+        }
+    };
+    
+    return messages[fieldName]?.[errorType] || 'Please enter a valid value';
+}
+
+// Update field error message
+function updateFieldErrorMessage(field, message) {
+    let feedbackElement = field.parentNode.querySelector('.invalid-feedback');
+    
+    if (!feedbackElement) {
+        feedbackElement = document.createElement('div');
+        feedbackElement.className = 'invalid-feedback';
+        field.parentNode.appendChild(feedbackElement);
+    }
+    
+    feedbackElement.textContent = message;
+}
+
+// Show validation summary
+function showValidationSummary(form) {
+    const summary = document.getElementById('formValidationSummary');
+    const errorsList = document.getElementById('validationErrorsList');
+    
+    if (!summary || !errorsList) return;
+    
+    // Clear previous errors
+    errorsList.innerHTML = '';
+    
+    // Collect all validation errors
+    const invalidFields = form.querySelectorAll('.is-invalid');
+    const errors = [];
+    
+    invalidFields.forEach(field => {
+        const feedback = field.parentNode.querySelector('.invalid-feedback');
+        if (feedback && feedback.textContent) {
+            const label = field.previousElementSibling?.textContent || field.name;
+            errors.push(`${label}: ${feedback.textContent}`);
+        }
+    });
+    
+    // Add errors to list
+    errors.forEach(error => {
+        const li = document.createElement('li');
+        li.textContent = error;
+        errorsList.appendChild(li);
+    });
+    
+    // Show summary
+    summary.classList.remove('d-none');
+    
+    // Scroll to summary
+    summary.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Hide validation summary
+function hideValidationSummary() {
+    const summary = document.getElementById('formValidationSummary');
+    if (summary) {
+        summary.classList.add('d-none');
+    }
 }
 
 // Animations
